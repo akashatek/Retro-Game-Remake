@@ -23,23 +23,51 @@ let cave = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
 let caveId = 1;
 let difficultyId = 3;
 
-const objects = [
-    { id: 0x00, name: "space",              gid: 0 }, 
-    { id: 0x01, name: "dirt",               gid: 58 }, 
-    { id: 0x02, name: "brick",              gid: 52 },
-    { id: 0x03, name: "magic",              gid: 52 }, 
-    { id: 0x04, name: "outbox",             gid: 50 }, 
-    { id: 0x07, name: "steel",              gid: 50 },
-    { id: 0x08, name: "firefly",            gid: 73 },
-    { id: 0x10, name: "boulder",            gid: 57 }, 
-    { id: 0x14, name: "diamond",            gid: 81 },
-    { id: 0x1B, name: "explode space",      gid: 59 },
-    { id: 0x1B, name: "explode diamond",    gid: 59 },
-    { id: 0x25, name: "pre rockford",       gid: 1 },
-    { id: 0x30, name: "butterfly",          gid: 89 },
-    { id: 0x38, name: "rockford",           gid: 1 },
-    { id: 0x3A, name: "amoeba",             gid: 65 }
-]
+const gids = [
+    0, 58, 52, 52, 50, 0, 0, 50, 73, 73, 73, 73, 0, 0, 0, 0, 
+    57, 57, 0, 0, 81, 81, 0, 0, 0, 0, 0, 59, 60, 61, 62, 63,
+    59, 60, 61, 62, 63, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 
+    89, 89, 89, 89, 0, 0, 0, 0, 1, 0, 65, 65, 65, 65];
+
+// reference: https://jakesgordon.com/writing/boulderdash-game-logic/
+
+var OBJECT = {
+  SPACE:             { code: 0x00, rounded: false, explodable: false, consumable: true  },
+  DIRT:              { code: 0x01, rounded: false, explodable: false, consumable: true  },
+  BRICKWALL:         { code: 0x02, rounded: true,  explodable: false, consumable: true  },
+  MAGICWALL:         { code: 0x03, rounded: false, explodable: false, consumable: true  },
+  PREOUTBOX:         { code: 0x04, rounded: false, explodable: false, consumable: false },
+  OUTBOX:            { code: 0x05, rounded: false, explodable: false, consumable: false },
+  STEELWALL:         { code: 0x07, rounded: false, explodable: false, consumable: false },
+  FIREFLY1:          { code: 0x08, rounded: false, explodable: true,  consumable: true  },
+  FIREFLY2:          { code: 0x09, rounded: false, explodable: true,  consumable: true  },
+  FIREFLY3:          { code: 0x0A, rounded: false, explodable: true,  consumable: true  },
+  FIREFLY4:          { code: 0x0B, rounded: false, explodable: true,  consumable: true  },
+  BOULDER:           { code: 0x10, rounded: true,  explodable: false, consumable: true  },
+  BOULDERFALLING:    { code: 0x12, rounded: false, explodable: false, consumable: true  },
+  DIAMOND:           { code: 0x14, rounded: true,  explodable: false, consumable: true  },
+  DIAMONDFALLING:    { code: 0x16, rounded: false, explodable: false, consumable: true  },
+  EXPLODETOSPACE0:   { code: 0x1B, rounded: false, explodable: false, consumable: false },
+  EXPLODETOSPACE1:   { code: 0x1C, rounded: false, explodable: false, consumable: false },
+  EXPLODETOSPACE2:   { code: 0x1D, rounded: false, explodable: false, consumable: false },
+  EXPLODETOSPACE3:   { code: 0x1E, rounded: false, explodable: false, consumable: false },
+  EXPLODETOSPACE4:   { code: 0x1F, rounded: false, explodable: false, consumable: false },
+  EXPLODETODIAMOND0: { code: 0x20, rounded: false, explodable: false, consumable: false },
+  EXPLODETODIAMOND1: { code: 0x21, rounded: false, explodable: false, consumable: false },
+  EXPLODETODIAMOND2: { code: 0x22, rounded: false, explodable: false, consumable: false },
+  EXPLODETODIAMOND3: { code: 0x23, rounded: false, explodable: false, consumable: false },
+  EXPLODETODIAMOND4: { code: 0x24, rounded: false, explodable: false, consumable: false },
+  PREROCKFORD1:      { code: 0x25, rounded: false, explodable: false, consumable: false },
+  PREROCKFORD2:      { code: 0x26, rounded: false, explodable: false, consumable: false },
+  PREROCKFORD3:      { code: 0x27, rounded: false, explodable: false, consumable: false },
+  PREROCKFORD4:      { code: 0x28, rounded: false, explodable: false, consumable: false },
+  BUTTERFLY1:        { code: 0x30, rounded: false, explodable: true,  consumable: true  },
+  BUTTERFLY2:        { code: 0x31, rounded: false, explodable: true,  consumable: true  },
+  BUTTERFLY3:        { code: 0x32, rounded: false, explodable: true,  consumable: true  },
+  BUTTERFLY4:        { code: 0x33, rounded: false, explodable: true,  consumable: true  },
+  ROCKFORD:          { code: 0x38, rounded: false, explodable: true,  consumable: true  },
+  AMOEBA:            { code: 0x3A, rounded: false, explodable: false, consumable: true  }
+};
 
 // ----------------------------------------------------
 // 2. Setup all game aspects (Bulk Image Loading with a URL list)
@@ -138,11 +166,11 @@ function caveLoad(caveId, difficultyId) {
     for(let row = 0; row < rows; row++) {
         for(let col = 0; col < cols; col++) {
             if (row == 0 || row == rows-1 || col == 0 || col == cols-1 ) {
-                cave[row][col] = objects.find(obj => obj.name == "steel").id;     // steel wall
+                cave[row][col] = OBJECT["STEELWALL"].code;     // steel wall
                 continue;
             }
 
-            cave[row][col] = objects.find(obj => obj.name == "dirt").id;          // dirt by default
+            cave[row][col] = OBJECT["DIRT"].code         // dirt by default
             
             let rand = randInt255();
 
@@ -169,15 +197,15 @@ function caveLoad(caveId, difficultyId) {
     let hei = 0;
     let index = 0x20;
     while (hex[index] != 0xFF) {
-        id = hex[index] & 0b00111111;
-        code = (hex[index] & 0b11000000) >> 6;
+        code = hex[index] & 0b00111111;
+        id = (hex[index] & 0b11000000) >> 6;
         col = hex[index+1];
         row = hex[index+2] - 2;   // map coding is keeping 2 line above for scores.
-        switch (code) {
+        switch (id) {
             case 0b00000000:      // store a single object
-                // console.log("DEBUG: store a single object id: %d, col: %d, row: %d", id, col, row);
+                // console.log("DEBUG: store a single object code: %d, col: %d, row: %d", code, col, row);
 
-                cave[row][col] = id;
+                cave[row][col] = code;
                 index += 3;
                 break;
             case 0b00000001:      // draw a line of that object
@@ -194,10 +222,10 @@ function caveLoad(caveId, difficultyId) {
                     case 6: dx = -1; break;                 // left
                     case 7: dx = -1; dy = -1; break;        // up-left
                 }
-                // console.log("DEBUG: draw a line id: %d, col: %d, row: %d, len: %d, dx: %d, dy: %d", id, col, row, len, dx, dy);
+                // console.log("DEBUG: draw a line code: %d, col: %d, row: %d, len: %d, dx: %d, dy: %d", code, col, row, len, dx, dy);
 
                 for(let i=0; i<len; i++) {
-                    cave[row + dy * i][col + dx * i] = id;
+                    cave[row + dy * i][col + dx * i] = code;
                 }
                 index += 5;
                 break;
@@ -205,12 +233,12 @@ function caveLoad(caveId, difficultyId) {
                 len = hex[index+3];
                 hei = hex[index+4];
                 let fil = hex[index+5];
-                // console.log("DEBUG: draw a filled rectangle id: %d, col: %d, row: %d, len: %d, hei: %d, fil: %d", id, col, row, len, hei, fil);
+                // console.log("DEBUG: draw a filled rectangle code: %d, col: %d, row: %d, len: %d, hei: %d, fil: %d", code, col, row, len, hei, fil);
 
                 for(let y=0; y<hei; y++) {
                     for(let x=0; x<len; x++) {
                         if (y == 0 || y == hei-1 || x == 0 || x == len-1) {
-                            cave[row + y][col + x] = id;
+                            cave[row + y][col + x] = code;
                         } else {
                             cave[row + y][col + x] = fil;
                         }
@@ -222,11 +250,11 @@ function caveLoad(caveId, difficultyId) {
             case 0b00000011:      // draw a rectangle of that object, don't modify the insides.
                 len = hex[index+3];
                 hei = hex[index+4];
-                // console.log("DEBUG: draw a rectangle id: %d, col: %d, row: %d, len: %d, hei: %d", id, col, row, len, hei);
+                // console.log("DEBUG: draw a rectangle code: %d, col: %d, row: %d, len: %d, hei: %d", code, col, row, len, hei);
 
                 for(let y=0; y<hei; y++) {
                     for(let x=0; x<len; x++) {
-                        cave[row + y][col + x] = id;   
+                        cave[row + y][col + x] = code;   
                     }
                 }
                 index += 5;
@@ -239,22 +267,21 @@ function caveStatistics() {
     let stats = new Array(0x3A).fill(0);
     for(let row=1; row<rows-1; row++) {
         for(let col=1; col<cols-1; col++) {
-            let id = cave[row][col];
-            stats[id] += 1;
+            let code = cave[row][col];
+            stats[code] += 1;
         }
     }
 
     let total = 0;
-    for (let id = 0; id < stats.length; id++) {
-        total += stats[id];
+    for (let code = 0; code < stats.length; code++) {
+        total += stats[code];
     }
 
     console.log("Boulder Dash Cave Statistics - total: %d", total);
-    for (let id = 0; id < stats.length; id++) {
-        const stat = Math.round(stats[id] * 100/total);
+    for (let code = 0; code < stats.length; code++) {
+        const stat = Math.round(stats[code] * 100/total);
         if (stat != 0) {
-            const name = objects.find(obj => obj.id == id).name
-            console.log("\tid: %d\tname: %s\tcount: %d\tcoverage: %d%", id, name, stats[id], Math.round(stats[id] * 100/total));
+            console.log("\code: %d\tcount: %d\tcoverage: %d%", code, stats[code], Math.round(stats[code] * 100/total));
         }
     }
 }
@@ -309,12 +336,12 @@ function render() {
     // 2. Draw the loaded screenshot image (it's the first image in the array)
     for(let row = 0; row < rows; row++) {
         for(let col = 0; col < cols; col++) {
-            const id = cave[row][col];
-            if (id == 0) {
+            const code = cave[row][col];
+            if (code == 0) {
                 continue;       // skipping drawing of blank tile
             }
-            const object = objects.find(obj => obj.id == id);
-            drawTile(object.gid, col * tilewidth, row * tileheight);
+
+            drawTile(gids[code], col * tilewidth, row * tileheight);
         }    
     }
 }
