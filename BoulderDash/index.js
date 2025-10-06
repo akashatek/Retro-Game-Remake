@@ -8,11 +8,38 @@
 
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
-const screenWidth = 320;
-const screenHeight = 200;
-const backgroundColor = 'darkgray';
+const screenWidth = 40*16;          // default 320, but for debugging 40 cols * 16 tilewidth
+const screenHeight = 22*16;         // default 200, but for debugging 22 rows * 16 tileheight
+const backgroundColor = 'black';
 
 let images = []; // Will hold the array of loaded Image objects
+
+const tilewidth = 16;
+const tileheight = 16;
+const cols = 40;
+const rows = 22;
+let cave = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
+
+let caveId = 1;
+let difficultyId = 3;
+
+const objects = [
+    { id: 0x00, name: "space",              gid: 0 }, 
+    { id: 0x01, name: "dirt",               gid: 58 }, 
+    { id: 0x02, name: "brick",              gid: 52 },
+    { id: 0x03, name: "magic",              gid: 52 }, 
+    { id: 0x04, name: "outbox",             gid: 50 }, 
+    { id: 0x07, name: "steel",              gid: 50 },
+    { id: 0x08, name: "firefly",            gid: 73 },
+    { id: 0x10, name: "boulder",            gid: 57 }, 
+    { id: 0x14, name: "diamond",            gid: 81 },
+    { id: 0x1B, name: "explode space",      gid: 59 },
+    { id: 0x1B, name: "explode diamond",    gid: 59 },
+    { id: 0x25, name: "pre rockford",       gid: 1 },
+    { id: 0x30, name: "butterfly",          gid: 89 },
+    { id: 0x38, name: "rockford",           gid: 1 },
+    { id: 0x3A, name: "amoeba",             gid: 65 }
+]
 
 // ----------------------------------------------------
 // 2. Setup all game aspects (Bulk Image Loading with a URL list)
@@ -24,14 +51,11 @@ let images = []; // Will hold the array of loaded Image objects
  * @returns {Promise<HTMLImageElement[]>} A Promise that resolves with an array of loaded Image objects.
  */
 function loadImages(urls) {
-    console.log("Starting bulk asset loading...");
-    
     // Create an array of Promises, one for each image file
     const loadingPromises = urls.map((url) => {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
-                console.log(`Image loaded: ${url}`);
                 resolve(img); // Resolve with the loaded Image object
             };
             img.onerror = () => {
@@ -46,6 +70,195 @@ function loadImages(urls) {
     return Promise.all(loadingPromises);
 }
 
+// ----------------------------------------------------
+// Randomness with Seed
+// ----------------------------------------------------
+
+// Use a self-invoking function to manage the seed state.
+// LCG parameters (constants from Numerical Recipes)
+const LCG_MULTIPLIER = 1664525;
+const LCG_INCREMENT = 1013904223;
+const LCG_MODULUS = Math.pow(2, 32); // 2^32, the standard modulus for 32-bit LCG
+
+let currentSeed = 0;
+
+/**
+ * Sets the initial seed for the random number generator.
+ * @param {number} seed - The integer seed to start the sequence.
+ */
+function setSeed(seed) {
+    // Ensure the seed is an integer and within the 32-bit range
+    currentSeed = Math.floor(seed) % LCG_MODULUS; 
+}
+
+/**
+ * Generates the next pseudo-random number in the sequence (0 to LCG_MODULUS - 1).
+ * Updates the internal currentSeed state.
+ * @returns {number} The next pseudo-random integer.
+ */
+function nextRandom() {
+    // LCG formula: X(n+1) = (a * X(n) + c) mod m
+    currentSeed = (LCG_MULTIPLIER * currentSeed + LCG_INCREMENT) % LCG_MODULUS;
+    return currentSeed;
+}
+
+/**
+ * Generates a pseudo-random integer between 0 and 255, inclusive.
+ * @returns {number} An integer between 0 and 255.
+ */
+function randInt255() {
+    // 1. Get the next 32-bit random number.
+    const rand32Bit = nextRandom();
+    
+    // 2. Reduce the 32-bit number to the 0-255 range.
+    // The modulus operation distributes the randomness evenly across the desired range.
+    return rand32Bit % 256; 
+}
+
+/**
+ * Load cave elements based on Raw Cave Data and Random Objects.
+ * @param {number} caveId - the cave data we need to load (1-20)
+ * @param {number} difficultyId - the cave difficulty to load (1-5)
+ **/
+function caveLoad(caveId, difficultyId) {
+    // Cave 1 - Cave A
+    const rawCaveDatas = [
+        "01 14 0A 0F 0A 0B 0C 0D 0E 0C 0C 0C 0C 0C 96 6E 46 28 1E 08 0B 09 D4 20 00 10 14 00 3C 32 09 00 42 01 09 1E 02 42 09 10 1E 02 25 03 04 04 26 12 FF",
+        "02 14 14 32 03 00 01 57 58 0A 0C 09 0D 0A 96 6E 46 46 46 0A 04 09 00 00 00 10 14 08 3C 32 09 02 42 01 08 26 02 42 01 0F 26 02 42 08 03 14 04 42 10 03 14 04 42 18 03 14 04 42 20 03 14 04 40 01 05 26 02 40 01 0B 26 02 40 01 12 26 02 40 14 03 14 04 25 12 15 04 12 16 FF",
+        "03 00 0F 00 00 32 36 34 37 18 17 18 17 15 96 64 5A 50 46 09 08 09 04 00 02 10 14 00 64 32 09 00 25 03 04 04 27 14 FF",
+        "04 14 05 14 00 6E 70 73 77 24 24 24 24 24 78 64 50 3C 32 04 08 09 00 00 10 00 00 00 14 00 00 00 25 01 03 04 26 16 81 08 0A 04 04 00 30 0A 0B 81 10 0A 04 04 00 30 12 0B 81 18 0A 04 04 00 30 1A 0B 81 20 0A 04 04 00 30 22 0B FF",
+        "05 14 32 5A 00 00 00 00 00 04 05 06 07 08 96 78 5A 3C 1E 09 0A 09 00 00 00 00 00 00 00 00 00 00 25 01 03 04 27 16 80 08 0A 03 03 00 80 10 0A 03 03 00 80 18 0A 03 03 00 80 20 0A 03 03 00 14 09 0C 08 0A 0A 14 11 0C 08 12 0A 14 19 0C 08 1A 0A 14 21 0C 08 22 0A 80 08 10 03 03 00 80 10 10 03 03 00 80 18 10 03 03 00 80 20 10 03 03 00 14 09 12 08 0A 10 14 11 12 08 12 10 14 19 12 08 1A 10 14 21 12 08 22 10 FF",
+        "06 14 28 3C 00 14 15 16 17 04 06 07 08 08 96 78 64 5A 50 0E 0A 09 00 00 10 00 00 00 32 00 00 00 82 01 03 0A 04 00 82 01 06 0A 04 00 82 01 09 0A 04 00 82 01 0C 0A 04 00 41 0A 03 0D 04 14 03 05 08 04 05 14 03 08 08 04 08 14 03 0B 08 04 0B 14 03 0E 08 04 0E 82 1D 03 0A 04 00 82 1D 06 0A 04 00 82 1D 09 0A 04 00 82 1D 0C 0A 04 00 41 1D 03 0D 04 14 24 05 08 23 05 14 24 08 08 23 08 14 24 0B 08 23 0B 14 24 0E 08 23 0E 25 03 14 04 26 14 FF",
+        "07 4B 0A 14 02 07 08 0A 09 0F 14 19 19 19 78 78 78 78 78 09 0A 0D 00 00 00 10 08 00 64 28 02 00 42 01 07 0C 02 42 1C 05 0B 02 7A 13 15 02 02 14 04 06 14 04 0E 14 04 16 14 22 04 14 22 0C 14 22 16 25 14 03 04 27 07 FF"
+    ]
+    const hex = rawCaveDatas[caveId - 1].split(" ").map(hexString => parseInt(hexString, 16));
+
+    setSeed(hex[0x04 + difficultyId - 1]);
+
+    for(let row = 0; row < rows; row++) {
+        for(let col = 0; col < cols; col++) {
+            if (row == 0 || row == rows-1 || col == 0 || col == cols-1 ) {
+                cave[row][col] = objects.find(obj => obj.name == "steel").id;     // steel wall
+                continue;
+            }
+
+            cave[row][col] = objects.find(obj => obj.name == "dirt").id;          // dirt by default
+            
+            let rand = randInt255();
+
+            if (rand < hex[0x1C] + hex[0x1D] + hex[0x1E] + hex[0x1F]) {
+                cave[row][col] = hex[0x1B];
+                if (rand < hex[0x1C] + hex[0x1D] + hex[0x1E]) {
+                    cave[row][col] = hex[0x1A];
+                    if (rand < hex[0x1C] + hex[0x1D]) {
+                        cave[row][col] = hex[0x19];
+                        if  (rand < hex[0x1C]) {
+                            cave[row][col] = hex[0x18];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let id = 0;
+    let code = 0;
+    let col = 0;
+    let row = 0;
+    let len = 0;
+    let hei = 0;
+    let index = 0x20;
+    while (hex[index] != 0xFF) {
+        id = hex[index] & 0b00111111;
+        code = (hex[index] & 0b11000000) >> 6;
+        col = hex[index+1];
+        row = hex[index+2] - 2;   // map coding is keeping 2 line above for scores.
+        switch (code) {
+            case 0b00000000:      // store a single object
+                // console.log("DEBUG: store a single object id: %d, col: %d, row: %d", id, col, row);
+
+                cave[row][col] = id;
+                index += 3;
+                break;
+            case 0b00000001:      // draw a line of that object
+                len = hex[index+3];
+                let dx = 0;
+                let dy = 0;
+                switch (hex[index+4]) {
+                    case 0: dy = -1; break;                 // up
+                    case 1: dx = 1; dy = -1; break;         // up-right
+                    case 2: dx = 1; break;                  // right
+                    case 3: dx = 1; dy = 1; break;          // down-right
+                    case 4: dy = 1; break;                  // down
+                    case 5: dx = -1; dy = 1; break;         // down-left
+                    case 6: dx = -1; break;                 // left
+                    case 7: dx = -1; dy = -1; break;        // up-left
+                }
+                // console.log("DEBUG: draw a line id: %d, col: %d, row: %d, len: %d, dx: %d, dy: %d", id, col, row, len, dx, dy);
+
+                for(let i=0; i<len; i++) {
+                    cave[row + dy * i][col + dx * i] = id;
+                }
+                index += 5;
+                break;
+            case 0b00000010:      // draw a rectangle of that object, filled with a second object
+                len = hex[index+3];
+                hei = hex[index+4];
+                let fil = hex[index+5];
+                // console.log("DEBUG: draw a filled rectangle id: %d, col: %d, row: %d, len: %d, hei: %d, fil: %d", id, col, row, len, hei, fil);
+
+                for(let y=0; y<hei; y++) {
+                    for(let x=0; x<len; x++) {
+                        if (y == 0 || y == hei-1 || x == 0 || x == len-1) {
+                            cave[row + y][col + x] = id;
+                        } else {
+                            cave[row + y][col + x] = fil;
+                        }
+                        
+                    }
+                }
+                index += 6;
+                break;
+            case 0b00000011:      // draw a rectangle of that object, don't modify the insides.
+                len = hex[index+3];
+                hei = hex[index+4];
+                // console.log("DEBUG: draw a rectangle id: %d, col: %d, row: %d, len: %d, hei: %d", id, col, row, len, hei);
+
+                for(let y=0; y<hei; y++) {
+                    for(let x=0; x<len; x++) {
+                        cave[row + y][col + x] = id;   
+                    }
+                }
+                index += 5;
+                break;
+        }
+    }
+}
+
+function caveStatistics() {
+    let stats = new Array(0x3A).fill(0);
+    for(let row=1; row<rows-1; row++) {
+        for(let col=1; col<cols-1; col++) {
+            let id = cave[row][col];
+            stats[id] += 1;
+        }
+    }
+
+    let total = 0;
+    for (let id = 0; id < stats.length; id++) {
+        total += stats[id];
+    }
+
+    console.log("Boulder Dash Cave Statistics - total: %d", total);
+    for (let id = 0; id < stats.length; id++) {
+        const stat = Math.round(stats[id] * 100/total);
+        if (stat != 0) {
+            const name = objects.find(obj => obj.id == id).name
+            console.log("\tid: %d\tname: %s\tcount: %d\tcoverage: %d%", id, name, stats[id], Math.round(stats[id] * 100/total));
+        }
+    }
+}
+
 /**
  * Loads all game assets and stores them in the global loadedImages array.
  * @returns {Promise<void>}
@@ -53,6 +266,11 @@ function loadImages(urls) {
 async function setup() {
     images = await loadImages(['title.png', 'tileset.png']);
     console.log("All assets loaded successfully.");
+
+    caveLoad(caveId, difficultyId);
+    console.log("Cave loaded successfully.");
+
+    caveStatistics();
 }
 
 // ----------------------------------------------------
@@ -77,13 +295,28 @@ function update() {
 // ----------------------------------------------------
 // 5. Render Game Sprites
 // ----------------------------------------------------
+function drawTile(gid, x, y) {
+    let tilerow = Math.round((gid - 1) / 8);    // tileset has 8 tiles per row
+    let tilecol = (gid - 1) % 8;                // tileset has 8 tiles per col
+    ctx.drawImage(images[1], (tilecol * tileheight), (tilerow * tilewidth), tilewidth, tileheight, x, y, tilewidth, tileheight, );
+}
+
 function render() {
     // 1. Clear the canvas
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, screenWidth, screenHeight);
     
     // 2. Draw the loaded screenshot image (it's the first image in the array)
-    ctx.drawImage(images[0], 0, 0);
+    for(let row = 0; row < rows; row++) {
+        for(let col = 0; col < cols; col++) {
+            const id = cave[row][col];
+            if (id == 0) {
+                continue;       // skipping drawing of blank tile
+            }
+            const object = objects.find(obj => obj.id == id);
+            drawTile(object.gid, col * tilewidth, row * tileheight);
+        }    
+    }
 }
 
 // ----------------------------------------------------
