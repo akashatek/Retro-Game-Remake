@@ -15,7 +15,7 @@ We are recreating retro games using modern HTML / W3CSS and Javascript. Heavily 
 
 | Title | Platform | Type | Image | Link |  
 |---|---|---|---|---|  
-| BoulderDash | C64 | maze-based puzzle | ![BoulderDash](./BoulderDash/screenshot.png) | [README](./BoulderDash/README.md)|
+| BoulderDash | C64 | maze-based puzzle | ![BoulderDash](./BoulderDash/screenshot.png) | [README](./BoulderDash)|
 
 <a id="Install&Run"></a>
 ## Install & Runs
