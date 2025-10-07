@@ -20,57 +20,26 @@ const cols = 40;
 const rows = 22;
 let cave = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
 
-let caveId = 1;
+let caveId = 7;
 let difficultyId = 3;
-
-const gids = [
-    0, 58, 52, 52, 50, 0, 0, 50, 73, 73, 73, 73, 0, 0, 0, 0, 
-    57, 57, 0, 0, 81, 81, 0, 0, 0, 0, 0, 59, 60, 61, 62, 63,
-    59, 60, 61, 62, 63, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 
-    89, 89, 89, 89, 0, 0, 0, 0, 1, 0, 65, 65, 65, 65];
 
 // reference: https://jakesgordon.com/writing/boulderdash-game-logic/
 
-var OBJECT = {
-  SPACE:             { code: 0x00, rounded: false, explodable: false, consumable: true  },
-  DIRT:              { code: 0x01, rounded: false, explodable: false, consumable: true  },
-  BRICKWALL:         { code: 0x02, rounded: true,  explodable: false, consumable: true  },
-  MAGICWALL:         { code: 0x03, rounded: false, explodable: false, consumable: true  },
-  PREOUTBOX:         { code: 0x04, rounded: false, explodable: false, consumable: false },
-  OUTBOX:            { code: 0x05, rounded: false, explodable: false, consumable: false },
-  STEELWALL:         { code: 0x07, rounded: false, explodable: false, consumable: false },
-  FIREFLY1:          { code: 0x08, rounded: false, explodable: true,  consumable: true  },
-  FIREFLY2:          { code: 0x09, rounded: false, explodable: true,  consumable: true  },
-  FIREFLY3:          { code: 0x0A, rounded: false, explodable: true,  consumable: true  },
-  FIREFLY4:          { code: 0x0B, rounded: false, explodable: true,  consumable: true  },
-  BOULDER:           { code: 0x10, rounded: true,  explodable: false, consumable: true  },
-  BOULDERFALLING:    { code: 0x12, rounded: false, explodable: false, consumable: true  },
-  DIAMOND:           { code: 0x14, rounded: true,  explodable: false, consumable: true  },
-  DIAMONDFALLING:    { code: 0x16, rounded: false, explodable: false, consumable: true  },
-  EXPLODETOSPACE0:   { code: 0x1B, rounded: false, explodable: false, consumable: false },
-  EXPLODETOSPACE1:   { code: 0x1C, rounded: false, explodable: false, consumable: false },
-  EXPLODETOSPACE2:   { code: 0x1D, rounded: false, explodable: false, consumable: false },
-  EXPLODETOSPACE3:   { code: 0x1E, rounded: false, explodable: false, consumable: false },
-  EXPLODETOSPACE4:   { code: 0x1F, rounded: false, explodable: false, consumable: false },
-  EXPLODETODIAMOND0: { code: 0x20, rounded: false, explodable: false, consumable: false },
-  EXPLODETODIAMOND1: { code: 0x21, rounded: false, explodable: false, consumable: false },
-  EXPLODETODIAMOND2: { code: 0x22, rounded: false, explodable: false, consumable: false },
-  EXPLODETODIAMOND3: { code: 0x23, rounded: false, explodable: false, consumable: false },
-  EXPLODETODIAMOND4: { code: 0x24, rounded: false, explodable: false, consumable: false },
-  PREROCKFORD1:      { code: 0x25, rounded: false, explodable: false, consumable: false },
-  PREROCKFORD2:      { code: 0x26, rounded: false, explodable: false, consumable: false },
-  PREROCKFORD3:      { code: 0x27, rounded: false, explodable: false, consumable: false },
-  PREROCKFORD4:      { code: 0x28, rounded: false, explodable: false, consumable: false },
-  BUTTERFLY1:        { code: 0x30, rounded: false, explodable: true,  consumable: true  },
-  BUTTERFLY2:        { code: 0x31, rounded: false, explodable: true,  consumable: true  },
-  BUTTERFLY3:        { code: 0x32, rounded: false, explodable: true,  consumable: true  },
-  BUTTERFLY4:        { code: 0x33, rounded: false, explodable: true,  consumable: true  },
-  ROCKFORD:          { code: 0x38, rounded: false, explodable: true,  consumable: true  },
-  AMOEBA:            { code: 0x3A, rounded: false, explodable: false, consumable: true  }
-};
+const objects = [
+    { type: "dirt", gid: 58, code: 0x01, rounded: false, explodable: false, consumable: true },
+    { type: "brick", gid: 52, code: 0x02, rounded: true,  explodable: false, consumable: true },
+    { type: "outbox", gid: 50, code: 0x04, rounded: false, explodable: false, consumable: false },
+    { type: "steel", gid: 50, code: 0x07, rounded: false, explodable: false, consumable: false },
+    { type: "firefly", gid: 88, code: 0x08, rounded: false, explodable: true,  consumable: true },
+    { type: "boulder", gid: 57, code: 0x10, rounded: true,  explodable: false, consumable: true },
+    { type: "diamond", gid: 80, code: 0x14, rounded: true,  explodable: false, consumable: true },
+    { type: "rockford", gid: 1, code: 0x25, rounded: false, explodable: true,  consumable: true },
+    { type: "butterfly", gid: 72, code: 0x30, rounded: false, explodable: true,  consumable: true  },
+    { type: "amoeba", gid: 64, code: 0x3A, rounded: false, explodable: false, consumable: true  }
+]
 
 // ----------------------------------------------------
-// 2. Setup all game aspects (Bulk Image Loading with a URL list)
+// 2. Setup all game aspects (Assets, Sprites, etc... )
 // ----------------------------------------------------
 
 /**
@@ -166,11 +135,13 @@ function caveLoad(caveId, difficultyId) {
     for(let row = 0; row < rows; row++) {
         for(let col = 0; col < cols; col++) {
             if (row == 0 || row == rows-1 || col == 0 || col == cols-1 ) {
-                cave[row][col] = OBJECT["STEELWALL"].code;     // steel wall
+                // cave[row][col] = OBJECT["STEELWALL"].code;     // steel wall
+                cave[row][col] = objects.find(obj => obj.type == "steel").code;     // steel wall
                 continue;
             }
 
-            cave[row][col] = OBJECT["DIRT"].code         // dirt by default
+            // cave[row][col] = OBJECT["DIRT"].code         // dirt by default
+            cave[row][col] = objects.find(obj => obj.type == "dirt").code         // dirt by default
             
             let rand = randInt255();
 
@@ -264,7 +235,7 @@ function caveLoad(caveId, difficultyId) {
 }
 
 function caveStatistics() {
-    let stats = new Array(0x3A).fill(0);
+    let stats = new Array(0x3B).fill(0);
     for(let row=1; row<rows-1; row++) {
         for(let col=1; col<cols-1; col++) {
             let code = cave[row][col];
@@ -286,6 +257,12 @@ function caveStatistics() {
     }
 }
 
+// function createSprite(code, col, row) {
+//     let property = properties.find(prop => prop.code == code);
+
+//     return { type: property.type, x: col * tilewidth, y: row * tileheight, gid: property.gid, animId: 0 }
+// }
+
 /**
  * Loads all game assets and stores them in the global loadedImages array.
  * @returns {Promise<void>}
@@ -296,6 +273,7 @@ async function setup() {
 
     caveLoad(caveId, difficultyId);
     console.log("Cave loaded successfully.");
+
 
     caveStatistics();
 }
@@ -316,14 +294,14 @@ function start() {
 // 4. Update Game Mechanics
 // ----------------------------------------------------
 function update() {
-
+    
 }
 
 // ----------------------------------------------------
 // 5. Render Game Sprites
 // ----------------------------------------------------
 function drawTile(gid, x, y) {
-    let tilerow = Math.round((gid - 1) / 8);    // tileset has 8 tiles per row
+    let tilerow = Math.round((gid - 1) / 8);    // tileset has 8 tiles per col
     let tilecol = (gid - 1) % 8;                // tileset has 8 tiles per col
     ctx.drawImage(images[1], (tilecol * tileheight), (tilerow * tilewidth), tilewidth, tileheight, x, y, tilewidth, tileheight, );
 }
@@ -337,11 +315,15 @@ function render() {
     for(let row = 0; row < rows; row++) {
         for(let col = 0; col < cols; col++) {
             const code = cave[row][col];
-            if (code == 0) {
+            if (code == 0x00) {
                 continue;       // skipping drawing of blank tile
             }
-
-            drawTile(gids[code], col * tilewidth, row * tileheight);
+            let object = objects.find(obj => obj.code == code);
+            if (object == undefined) {
+                console.log("ERROR: cannot find object %d", code);
+                continue;
+            }
+            drawTile(object.gid, col * tilewidth, row * tileheight);
         }    
     }
 }
