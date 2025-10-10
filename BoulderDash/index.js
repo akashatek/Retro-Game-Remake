@@ -8,8 +8,10 @@
 
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
-const screenWidth = 40*16;          // default 320, but for debugging 40 cols * 16 tilewidth
-const screenHeight = 22*16;         // default 200, but for debugging 22 rows * 16 tileheight
+const screenWidth = 320;          // default 320, but for debugging 40 cols * 16 tilewidth
+const screenHeight = 200;         // default 200, but for debugging 22 rows * 16 tileheight
+const screenXOffset = 0;
+const screenYOffset = 0;
 const backgroundColor = 'black';
 
 let images = []; // Will hold the array of loaded Image objects
@@ -20,22 +22,25 @@ const cols = 40;
 const rows = 22;
 let cave = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
 
-let caveId = 7;
+let caveId = 1;
 let difficultyId = 3;
+let sprites = [];
+let time = 20;
+let timer = 80; // ~20ms per frame, 50 FPS
 
 // reference: https://jakesgordon.com/writing/boulderdash-game-logic/
 
-const objects = [
-    { type: "dirt", gid: 58, code: 0x01, rounded: false, explodable: false, consumable: true },
-    { type: "brick", gid: 52, code: 0x02, rounded: true,  explodable: false, consumable: true },
-    { type: "outbox", gid: 50, code: 0x04, rounded: false, explodable: false, consumable: false },
-    { type: "steel", gid: 50, code: 0x07, rounded: false, explodable: false, consumable: false },
-    { type: "firefly", gid: 88, code: 0x08, rounded: false, explodable: true,  consumable: true },
-    { type: "boulder", gid: 57, code: 0x10, rounded: true,  explodable: false, consumable: true },
-    { type: "diamond", gid: 80, code: 0x14, rounded: true,  explodable: false, consumable: true },
-    { type: "rockford", gid: 1, code: 0x25, rounded: false, explodable: true,  consumable: true },
-    { type: "butterfly", gid: 72, code: 0x30, rounded: false, explodable: true,  consumable: true  },
-    { type: "amoeba", gid: 64, code: 0x3A, rounded: false, explodable: false, consumable: true  }
+const types = [
+    { name: "dirt", gid: 58, code: 0x01, rounded: false, explodable: false, consumable: true },
+    { name: "brick", gid: 52, code: 0x02, rounded: true,  explodable: false, consumable: true },
+    { name: "outbox", gid: 50, code: 0x04, rounded: false, explodable: false, consumable: false },
+    { name: "steel", gid: 50, code: 0x07, rounded: false, explodable: false, consumable: false },
+    { name: "firefly", gid: 89, code: 0x08, rounded: false, explodable: true,  consumable: true },
+    { name: "boulder", gid: 57, code: 0x10, rounded: true,  explodable: false, consumable: true },
+    { name: "diamond", gid: 81, code: 0x14, rounded: true,  explodable: false, consumable: true },
+    { name: "rockford", gid: 1, code: 0x25, rounded: false, explodable: true,  consumable: true },
+    { name: "butterfly", gid: 73, code: 0x30, rounded: false, explodable: true,  consumable: true  },
+    { name: "amoeba", gid: 65, code: 0x3A, rounded: false, explodable: false, consumable: true  }
 ]
 
 // ----------------------------------------------------
@@ -136,12 +141,12 @@ function caveLoad(caveId, difficultyId) {
         for(let col = 0; col < cols; col++) {
             if (row == 0 || row == rows-1 || col == 0 || col == cols-1 ) {
                 // cave[row][col] = OBJECT["STEELWALL"].code;     // steel wall
-                cave[row][col] = objects.find(obj => obj.type == "steel").code;     // steel wall
+                cave[row][col] = types.find(type => type.name == "steel").code;     // steel wall
                 continue;
             }
 
             // cave[row][col] = OBJECT["DIRT"].code         // dirt by default
-            cave[row][col] = objects.find(obj => obj.type == "dirt").code         // dirt by default
+            cave[row][col] = types.find(type => type.name == "dirt").code;         // dirt by default
             
             let rand = randInt255();
 
@@ -236,8 +241,8 @@ function caveLoad(caveId, difficultyId) {
 
 function caveStatistics() {
     let stats = new Array(0x3B).fill(0);
-    for(let row=1; row<rows-1; row++) {
-        for(let col=1; col<cols-1; col++) {
+    for(let row=0; row<rows; row++) {
+        for(let col=0; col<cols; col++) {
             let code = cave[row][col];
             stats[code] += 1;
         }
@@ -257,11 +262,33 @@ function caveStatistics() {
     }
 }
 
-// function createSprite(code, col, row) {
-//     let property = properties.find(prop => prop.code == code);
+function appendSprites(code, col, row) {
+    let type = types.find(type => type.code == code);
+    let sprite = { 
+        type: type, 
+        x: col * tilewidth, 
+        y: row * tileheight, 
+        gid: type.gid, 
+        animId: 0, 
+        animIdMax: 0,
+        isAnimated: false, 
+        invalidate: true };
 
-//     return { type: property.type, x: col * tilewidth, y: row * tileheight, gid: property.gid, animId: 0 }
-// }
+    if (type.name == "diamond" || type.name == "firefly" || type.name == "butterfly" || type.name == "amoeba") {
+        sprite.isAnimated = true;
+        sprite.animId = 0;
+        sprite.animIdMax = 8;
+    }
+
+    if (type.name == "rockford") {
+        sprite.isAnimated = true;
+        sprite.gid = 41;
+        sprite.animId = 0;
+        sprite.animIdMax = 8;
+    }
+
+    sprites.push(sprite);
+}
 
 /**
  * Loads all game assets and stores them in the global loadedImages array.
@@ -269,22 +296,53 @@ function caveStatistics() {
  */
 async function setup() {
     images = await loadImages(['title.png', 'tileset.png']);
-    console.log("All assets loaded successfully.");
+    // images.forEach((img, index) => {
+    //     console.log(`Image ${index}: ${img.width}x${img.height}, src: ${img.src}`);
+    // });
 
     caveLoad(caveId, difficultyId);
-    console.log("Cave loaded successfully.");
+    // caveStatistics();
 
+    sprites = [];
+    for(let row = 0; row < rows; row++) {
+        for(let col = 0; col < cols; col++) {
+            const code = cave[row][col];
+            if (code == 0x00) {
+                continue;       // no need to create a blank sprite
+            }
+            let type = types.find(type => type.code == code);
+            if (type == undefined) {
+                console.log("ERROR: cannot find object %d", code);
+                continue;
+            }
+            appendSprites(code, col, row);
+        }    
+    }
 
-    caveStatistics();
+    // 1. Clear the canvas
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, screenWidth, screenHeight);
 }
 
 // ----------------------------------------------------
 // 3. Main Game Loop
 // ----------------------------------------------------
 function start() {
+    let previousTime = performance.now();
+
+    // Main game loop using requestAnimationFrame for smooth rendering
     const loop = () => {
-        update();
-        render();
+        const currentTime = performance.now();
+        const deltaTime = currentTime - previousTime; // Time elapsed since last frame
+
+        time += deltaTime;
+        if (time >= timer) {
+            time = 0;
+            update();
+            render();
+        }
+
+        previousTime = currentTime;
         requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -294,38 +352,32 @@ function start() {
 // 4. Update Game Mechanics
 // ----------------------------------------------------
 function update() {
-    
+    sprites.forEach(sprite => {
+        if (sprite.isAnimated) {
+            sprite.animId = (sprite.animId + 1) % 8; // Cycle through 0, 1, 2, 3
+            // sprite.gid = sprite.type.gid + sprite.animId;
+            sprite.invalidate = true;
+        }
+    });
 }
 
 // ----------------------------------------------------
 // 5. Render Game Sprites
 // ----------------------------------------------------
 function drawTile(gid, x, y) {
-    let tilerow = Math.round((gid - 1) / 8);    // tileset has 8 tiles per col
+    let tilerow = Math.floor((gid - 1) / 8);    // tileset has 8 tiles per col
     let tilecol = (gid - 1) % 8;                // tileset has 8 tiles per col
-    ctx.drawImage(images[1], (tilecol * tileheight), (tilerow * tilewidth), tilewidth, tileheight, x, y, tilewidth, tileheight, );
+    ctx.drawImage(images[1], (tilecol * tilewidth), (tilerow * tileheight), tilewidth, tileheight, x, y, tilewidth, tileheight);
 }
 
 function render() {
-    // 1. Clear the canvas
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, screenWidth, screenHeight);
-    
-    // 2. Draw the loaded screenshot image (it's the first image in the array)
-    for(let row = 0; row < rows; row++) {
-        for(let col = 0; col < cols; col++) {
-            const code = cave[row][col];
-            if (code == 0x00) {
-                continue;       // skipping drawing of blank tile
-            }
-            let object = objects.find(obj => obj.code == code);
-            if (object == undefined) {
-                console.log("ERROR: cannot find object %d", code);
-                continue;
-            }
-            drawTile(object.gid, col * tilewidth, row * tileheight);
-        }    
-    }
+    // let count = 0;
+    sprites.filter(sprite => sprite.invalidate).forEach(sprite => {
+        drawTile(sprite.gid + sprite.animId, sprite.x - screenXOffset, sprite.y - screenYOffset);
+        sprite.invalidate = false;
+        // count += 1;
+    });
+    // console.log("Render: updated %d sprites", count);
 }
 
 // ----------------------------------------------------
