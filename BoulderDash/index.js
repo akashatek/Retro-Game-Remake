@@ -26,8 +26,6 @@ const caveYOffset = 0;
 let caveId = 1;
 let difficultyId = 1;
 let sprites = [];
-let time = 0;
-let timer = 100; // ~100ms per frame, 10 FPS
 let inboxAnimId = 10;
 
 const types = [
@@ -383,6 +381,10 @@ async function setup() {
 // ----------------------------------------------------
 // Main Game Loop
 // ----------------------------------------------------
+let gameState = 'spawning'; // 'spawning', 'playing', 'gameover'
+let time = 0;
+let timer = 100; // ~100ms per frame, 10 FPS
+
 function start() {
     let previousTime = performance.now();
 
@@ -415,6 +417,7 @@ function start() {
 // ----------------------------------------------------
 // Main Game Update
 // ----------------------------------------------------
+
 function update() {
     // update player input
     let inbox = sprites.find(sprite => sprite.name === "inbox");
@@ -438,7 +441,7 @@ function update() {
         // Replace inbox with rockford
         let rockfordType = types.find(t => t.name === "rockford");
         appendSprites(inbox.col, inbox.row, rockfordType);
-        console.log("DEBUG: Rockford appears at col: %d, row: %d", inbox.col, inbox.row);
+        // console.log("DEBUG: Rockford appears at col: %d, row: %d", inbox.col, inbox.row);
         sprites.splice(sprites.indexOf(inbox), 1); // remove the inbox
     }
 
@@ -446,6 +449,28 @@ function update() {
     orderSprites();
 
     // update falling
+    updateFalling();
+
+    // Update animated sprites
+    sprites.forEach(sprite => {
+        if (sprite.animated) {
+            sprite.animId = (sprite.animId + 1); // Cycle through 0, 1, 2, 3
+            if (sprite.animId >= sprite.animIdMax) {
+                // Reset to the first frame if exceeding max
+                sprite.animId = 0;
+                if (sprite.animCycle > 0) {
+                    sprite.animCycle -= 1;
+                    if (sprite.animCycle == 0) {
+                        sprite.animated = false;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateFalling() {
+    // TBD: update falling logic
     sprites.filter(sprite => sprite.fallable == true).forEach(sprite => {
         let coord = getSpriteCoord(sprite);
         let below = getSpriteAt(coord.col, coord.row + 1);
@@ -485,25 +510,6 @@ function update() {
             }
         }
     });
-
-    // Update animated sprites
-    sprites.forEach(sprite => {
-        if (sprite.animated) {
-            sprite.animId = (sprite.animId + 1); // Cycle through 0, 1, 2, 3
-            if (sprite.animId >= sprite.animIdMax) {
-                // Reset to the first frame if exceeding max
-                sprite.animId = 0;
-                if (sprite.animCycle > 0) {
-                    sprite.animCycle -= 1;
-                    if (sprite.animCycle == 0) {
-                        sprite.animated = false;
-                    }
-                }
-            }
-        }
-    });
-
-    
 }
 
 // ----------------------------------------------------
@@ -528,6 +534,48 @@ function render() {
 // Main Game Keyboard Handler
 // ----------------------------------------------------
 
+const DIRECTION_NONE        = 0;
+const DIRECTION_UP          = 1;
+const DIRECTION_UPRIGHT     = 2;
+const DIRECTION_RIGHT       = 3;
+const DIRECTION_DOWNRIGHT   = 4;
+const DIRECTION_DOWN        = 5;
+const DIRECTION_DOWNLEFT    = 6;
+const DIRECTION_LEFT        = 7;
+const DIRECTION_UPLEFT      = 8;
+
+function getDirectionFromJoypad() {
+    if (isJoypadPressed(JOYPAD_UP)) {
+        return DIRECTION_UP;        // up
+    }
+    if (isJoypadPressed(JOYPAD_RIGHT)) {
+        return DIRECTION_RIGHT;     // right
+    }
+    if (isJoypadPressed(JOYPAD_DOWN)) {
+        return DIRECTION_DOWN;      // down
+    }
+    if (isJoypadPressed(JOYPAD_LEFT)) {
+        return DIRECTION_LEFT;      // left
+    }
+    return DIRECTION_NONE;          // no direction
+}
+
+function getDXDYFromDirection(direction) {
+    let dx = 0;
+    let dy = 0;
+    switch (direction) {
+        case DIRECTION_UP: dy = -1; break;                  // up
+        case DIRECTION_UPRIGHT: dx = 1; dy = -1; break;     // up-right
+        case DIRECTION_RIGHT: dx = 1; break;                // right
+        case DIRECTION_DOWNRIGHT: dx = 1; dy = 1; break;    // down-right
+        case DIRECTION_DOWN: dy = 1; break;                 // down
+        case DIRECTION_DOWNLEFT: dx = -1; dy = 1; break;    // down-left
+        case DIRECTION_LEFT: dx = -1; break;                // left
+        case DIRECTION_UPLEFT: dx = -1; dy = -1; break;     // up-left
+    }
+    return {dx: dx, dy: dy};
+}
+
 let joypad = 0b00000000;
 const JOYPAD_UP     = 0b00000001;
 const JOYPAD_RIGHT  = 0b00000010;
@@ -537,38 +585,6 @@ const JOYPAD_A      = 0b00010000;
 const JOYPAD_B      = 0b00100000;
 const JOYPAD_START  = 0b01000000;
 const JOYPAD_SELECT = 0b10000000;
-
-function getDirectionFromJoypad() {
-    if (isJoypadPressed(JOYPAD_UP)) {
-        return 1;   // up
-    }
-    if (isJoypadPressed(JOYPAD_RIGHT)) {
-        return 3;   // right
-    }
-    if (isJoypadPressed(JOYPAD_DOWN)) {
-        return 5;   // down
-    }
-    if (isJoypadPressed(JOYPAD_LEFT)) {
-        return 7;   // left
-    }
-    return 0;      // no direction
-}
-
-function getDXDYFromDirection(direction) {
-    let dx = 0;
-    let dy = 0;
-    switch (direction) {
-        case 1: dy = -1; break;                 // up
-        case 2: dx = 1; dy = -1; break;         // up-right
-        case 3: dx = 1; break;                  // right
-        case 4: dx = 1; dy = 1; break;          // down-right
-        case 5: dy = 1; break;                  // down
-        case 6: dx = -1; dy = 1; break;         // down-left
-        case 7: dx = -1; break;                 // left
-        case 8: dx = -1; dy = -1; break;        // up-left
-    }
-    return {dx: dx, dy: dy};
-}
 
 function isJoypadPressed(mask) {
     return (joypad & mask) != 0;
