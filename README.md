@@ -3,6 +3,7 @@
 Table Of Content:
 * [Description](#Description)
 * [Games](#Games)
+* [Emulators](#Emulators)
 * [Install & Run](#Install&Run)
 
 <a id="Description"></a>
@@ -16,6 +17,14 @@ We are recreating retro games using modern HTML / W3CSS and Javascript. Heavily 
 | Title | Platform | Type | Image | Link |  
 |---|---|---|---|---|  
 | BoulderDash | C64 | maze-based puzzle | ![BoulderDash](./BoulderDash/screenshot.png) | [README](./BoulderDash)|
+
+
+<a id="Emulators"></a>
+## Emulators
+
+| Name | Company | Type | Image | Link |  
+|---|---|---|---|---|  
+| Sega Master System | Sega | 8-bit | ![Sega Master System](./Assets/Roms/SMS/sms-boot-screen.png) | [README](./SMSEMU)|
 
 <a id="Install&Run"></a>
 ## Install & Runs
