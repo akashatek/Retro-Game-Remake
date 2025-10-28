@@ -5,6 +5,13 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+        <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+        integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+        crossorigin="anonymous"
+        defer
+        ></script>
+        <script src="index.js" type="module"></script>
     </head>
 <body class="w3-container w3-center w3-deep-purple">
     <header class="w3-container w3-padding w3-indigo">
@@ -14,12 +21,9 @@
     </header>
 
    <div id="gl-container" class="w3-container w3-padding">
-        <canvas id="gl-canvas" class="w3-container w3-padding" style="width: 100%; height:100%; image-rendering: pixelated;">
+        <canvas id="glcanvas" width="640" height="480" class="w3-container w3-padding" style="width: 100%; height:100%; image-rendering: pixelated;">
             Sorry, your browser does not support canvas.
         </canvas>
     </div>
-
-    <!-- Script is loaded as a module -->
-    <script src="index.js" type="module"></script>
 </body>
 </html>

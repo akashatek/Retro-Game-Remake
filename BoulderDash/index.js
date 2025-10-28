@@ -353,7 +353,7 @@ function drawTile(gid, x, y) {
  * @returns {Promise<void>}
  */
 async function setup() {
-    images = await loadImages(['title.png', 'tileset.png']);
+    images = await loadImages(['../Assets/BoulderDash/title.png', '../Assets/BoulderDash/tileset.png']);
     // images.forEach((img, index) => {
     //     console.log(`Image ${index}: ${img.width}x${img.height}, src: ${img.src}`);
     // });
